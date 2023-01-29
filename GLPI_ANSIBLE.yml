@@ -1,0 +1,52 @@
+- name: Install GLPI with MariaDB
+  hosts: localhost
+  become: yes
+  vars:
+    glpi_version: 9.5.4
+    glpi_url: https://github.com/glpi-project/glpi/releases/download/9.5.4/glpi-9.5.4.tgz
+    mariadb_root_password: mysecretpassword
+  tasks:
+  - name: Install MariaDB
+    apt:
+      name: mariadb-server
+      state: present
+    tags: mariadb
+  - name: Configure MariaDB root password
+    mysql_user:
+      name: root
+      password: "{{ mariadb_root_password }}"
+      host: localhost
+      login_user: root
+      login_password: ""
+      priv: "*.*:ALL,GRANT"
+      check_implicit_admin: yes
+    tags: mariadb
+  - name: Create GLPI database
+    mysql_db:
+      name: glpi
+      state: present
+      login_user: root
+      login_password: "{{ mariadb_root_password }}"
+    tags: mariadb
+  - name: Install GLPI
+    unarchive:
+      src: "{{ glpi_url }}"
+      dest: /var/www/html
+      remote_src: yes
+    tags: glpi
+  - name: Configure GLPI
+    command: mv /var/www/html/glpi/* /var/www/html/
+    tags: glpi
+  - name: Give ownership to apache
+    file:
+      path: /var/www/html
+      owner: www-data
+      group: www-data
+      recurse: yes
+      state: directory
+    tags: glpi
+  - name: restart apache
+    service: 
+      name: apache2
+      state: restarted
+    tags: glpi
